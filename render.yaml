@@ -13,7 +13,5 @@ services:
         sync: false
       - key: LIVE_FOOTBALL_KEY
         sync: false
-      - key: WEB_AUTH_USERNAME
-        sync: false
-      - key: WEB_AUTH_PASSWORD
+      - key: ODDS_API_KEY
         sync: false

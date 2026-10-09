@@ -11,3 +11,4 @@ __pycache__/
 # Local provider caches and generated app data
 cache/
 data/analyses.json
+data/predictions.sqlite3*

@@ -8,6 +8,42 @@ const detailPanel = document.querySelector("#detail-panel");
 const detailContent = document.querySelector("#detail-content");
 const totalCount = document.querySelector("#total-count");
 const listMeta = document.querySelector("#list-meta");
+const workspaceTabs = [...document.querySelectorAll(".workspace-tab")];
+
+function activateWorkspaceView(view, { updateHash = true, focusTab = false } = {}) {
+  const validViews = new Set(["calendar", "picks", "performance"]);
+  const selectedView = validViews.has(view) ? view : "calendar";
+  workspaceTabs.forEach((tab) => {
+    const selected = tab.dataset.view === selectedView;
+    tab.classList.toggle("active", selected);
+    tab.setAttribute("aria-selected", String(selected));
+    tab.tabIndex = selected ? 0 : -1;
+    if (selected && focusTab) tab.focus();
+  });
+  document.querySelectorAll("[data-view-panel]").forEach((panel) => {
+    const selected = panel.dataset.viewPanel === selectedView;
+    panel.hidden = !selected;
+    panel.classList.toggle("active", selected);
+  });
+  if (updateHash && window.location.hash !== `#${selectedView}`) {
+    window.history.pushState(null, "", `#${selectedView}`);
+  }
+  if (selectedView === "performance") loadPredictionStats();
+}
+
+workspaceTabs.forEach((tab, index) => {
+  tab.addEventListener("click", () => activateWorkspaceView(tab.dataset.view));
+  tab.addEventListener("keydown", (event) => {
+    let nextIndex = index;
+    if (event.key === "ArrowRight") nextIndex = (index + 1) % workspaceTabs.length;
+    else if (event.key === "ArrowLeft") nextIndex = (index - 1 + workspaceTabs.length) % workspaceTabs.length;
+    else if (event.key === "Home") nextIndex = 0;
+    else if (event.key === "End") nextIndex = workspaceTabs.length - 1;
+    else return;
+    event.preventDefault();
+    activateWorkspaceView(workspaceTabs[nextIndex].dataset.view, { focusTab: true });
+  });
+});
 
 const AUTO_REFRESH_MS = 120_000;
 function loadFavoriteIds() {
@@ -29,7 +65,7 @@ function loadAlertsEnabled() {
   }
 }
 
-const state = { matches: [], selectedId: null, status: "all", availability: "all", analysis: null, busy: false, batchBusy: false, batchResults: new Map(), autoRefreshEnabled: false, autoRefreshTimer: null, autoRefreshBusy: false, favorites: new Set(loadFavoriteIds()), alertsEnabled: loadAlertsEnabled() };
+const state = { matches: [], selectedId: null, status: "all", availability: "all", analysis: null, busy: false, batchBusy: false, batchResults: new Map(), odds: new Map(), oddsLoading: new Set(), dailyPicks: null, dailyPicksBusy: false, autoRefreshEnabled: false, autoRefreshTimer: null, autoRefreshBusy: false, favorites: new Set(loadFavoriteIds()), alertsEnabled: loadAlertsEnabled() };
 
 function todayLocal() {
   const now = new Date();
@@ -350,6 +386,76 @@ function selectMatch(match) {
   renderMatches();
   renderDetail(match);
   detailPanel.classList.add("open");
+  loadMatchOdds(match);
+}
+
+function renderOdds(match) {
+  const odds = state.odds.get(String(match.source_match_id));
+  const section = el("section", "odds-panel");
+  const heading = el("div", "odds-heading");
+  heading.append(el("span", "results-section-title", "COTES 1X2 · THE ODDS API"));
+  const refresh = el("button", "odds-refresh", state.oddsLoading.has(String(match.source_match_id)) ? "…" : "↻");
+  refresh.type = "button";
+  refresh.title = "Actualiser les cotes";
+  refresh.setAttribute("aria-label", "Actualiser les cotes");
+  refresh.disabled = state.oddsLoading.has(String(match.source_match_id));
+  refresh.addEventListener("click", () => loadMatchOdds(match, true));
+  heading.append(refresh);
+  section.append(heading);
+
+  if (state.oddsLoading.has(String(match.source_match_id))) {
+    section.append(el("div", "market-unavailable", "Recherche des cotes actuelles…"));
+    return section;
+  }
+  if (!odds) {
+    section.append(el("div", "market-unavailable", "Chargement des cotes…"));
+    return section;
+  }
+  if (!odds.available) {
+    section.append(el("div", "market-unavailable", odds.reason || "Cotes indisponibles pour ce match."));
+    return section;
+  }
+
+  const best = el("div", "odds-best-grid");
+  for (const [side, label] of [["home", "1"], ["draw", "N"], ["away", "2"]]) {
+    const value = odds.best?.[side];
+    const tile = el("div", "odds-best-tile");
+    tile.append(el("span", "", label), el("strong", "", value == null ? "—" : Number(value).toFixed(2)));
+    best.append(tile);
+  }
+  section.append(best);
+
+  const list = el("div", "odds-bookmakers");
+  odds.bookmakers.forEach((bookmaker) => {
+    const row = el("div", "odds-bookmaker-row");
+    row.append(el("span", "", bookmaker.name));
+    row.append(el("strong", "", [bookmaker.home, bookmaker.draw, bookmaker.away]
+      .map((price) => price == null ? "—" : Number(price).toFixed(2))
+      .join(" · ")));
+    list.append(row);
+  });
+  section.append(list);
+  return section;
+}
+
+async function loadMatchOdds(match, forceRefresh = false) {
+  const matchId = String(match.source_match_id);
+  if (state.oddsLoading.has(matchId) || (state.odds.has(matchId) && !forceRefresh)) return;
+  state.oddsLoading.add(matchId);
+  if (String(state.selectedId) === matchId) renderDetail(match);
+  try {
+    const response = await fetch(
+      `/api/odds?date=${encodeURIComponent(match.match_date)}&match_id=${encodeURIComponent(matchId)}${forceRefresh ? "&refresh=1" : ""}`
+    );
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || "Échec de récupération des cotes");
+    state.odds.set(matchId, result);
+  } catch (error) {
+    state.odds.set(matchId, { available: false, reason: error.message });
+  } finally {
+    state.oddsLoading.delete(matchId);
+    if (String(state.selectedId) === matchId) renderDetail(match);
+  }
 }
 
 function renderDetail(match, error = "") {
@@ -375,6 +481,7 @@ function renderDetail(match, error = "") {
   meta.append(el("span", "meta-separator", "·"));
   meta.append(el("span", "", match.score || statusText(match)));
   detailContent.append(meta);
+  detailContent.append(renderOdds(match));
 
   if (match.analysis_league_key) {
     const analyze = el("button", "analysis-button");
@@ -391,6 +498,190 @@ function renderDetail(match, error = "") {
 
   if (error) detailContent.append(el("div", "analysis-error", error));
   if (state.analysis) detailContent.append(renderAnalysis(state.analysis));
+}
+
+function formatOdds(value) {
+  return Number(value).toFixed(2);
+}
+
+function renderDailyPick(pick, combo = false) {
+  const article = el("article", combo ? "daily-pick combo-pick" : "daily-pick");
+  const top = el("div", "daily-pick-top");
+  if (combo) {
+    top.append(el("strong", "daily-pick-total-odds", `Cote ${formatOdds(pick.total_odds)}`));
+    top.append(el("span", "daily-pick-probability", `Probabilité estimée ${percent(pick.estimated_probability)}`));
+    article.append(top);
+    const legs = el("ol", "daily-pick-legs");
+    pick.legs.forEach((leg) => {
+      const row = el("li", "daily-pick-leg");
+      row.append(el("span", "", `${leg.home_team} - ${leg.away_team} · ${leg.label}`));
+      row.append(el("strong", "", formatOdds(leg.odds)));
+      legs.append(row);
+    });
+    article.append(legs);
+    article.append(el("div", "daily-pick-meta", `${pick.legs.length} matchs distincts · rendement théorique estimé ${percent(pick.expected_return)}`));
+    return article;
+  }
+
+  top.append(el("strong", "daily-pick-total-odds", formatOdds(pick.odds)));
+  top.append(el("span", "daily-pick-probability", `Probabilité estimée ${percent(pick.probability)}`));
+  article.append(top);
+  article.append(el("div", "daily-pick-match", `${pick.home_team} - ${pick.away_team}`));
+  article.append(el("div", "daily-pick-meta", `${pick.competition || "Compétition"} · ${pick.label} · ${pick.bookmaker} · Données ${pick.data_quality === "usable" ? "exploitables" : "limitées"}`));
+  article.append(el("div", "daily-pick-meta", `Rendement théorique estimé ${percent(pick.expected_return)}`));
+  return article;
+}
+
+function renderDailyPicks(data) {
+  const panel = document.querySelector("#daily-picks-panel");
+  panel.replaceChildren();
+  panel.hidden = false;
+
+  const heading = el("div", "daily-picks-heading");
+  heading.append(el("div", "eyebrow", `SÉLECTIONS 1XBET · ${data.date || dateInput.value}`));
+  const refresh = el("button", "odds-refresh", state.dailyPicksBusy ? "…" : "↻");
+  refresh.type = "button";
+  refresh.title = "Recalculer les propositions";
+  refresh.setAttribute("aria-label", "Recalculer les propositions");
+  refresh.disabled = state.dailyPicksBusy;
+  refresh.addEventListener("click", generateDailyPicks);
+  heading.append(refresh);
+  panel.append(heading);
+
+  const coverage = data.coverage || {};
+  const coverageText = `${coverage.matches_with_1xbet_odds || 0} matchs avec cotes 1xBet · ${coverage.candidate_selections || 0} sélections évaluées · ${coverage.combo_eligible_selections || 0} admissibles aux combinés · ${data.matches_scanned || 0}/${data.matches_in_calendar || 0} rencontres examinées`;
+  panel.append(el("div", "daily-picks-coverage", coverageText));
+  if (data.tracking?.message || data.tracking?.available) {
+    panel.append(el(
+      "div",
+      `daily-picks-tracking${data.tracking.available ? " is-saved" : " is-warning"}`,
+      `${data.tracking.message}${data.tracking.available ? ` (${data.tracking.model_predictions} issues 1X2; ${data.tracking.simple_bets} simples proposés)` : ""}`,
+    ));
+  }
+
+  if (data.singles?.length) {
+    const section = el("section", "daily-picks-section");
+    section.append(el("h2", "daily-picks-section-title", "Paris simples à considérer"));
+    const list = el("div", "daily-picks-list");
+    data.singles.forEach((pick) => list.append(renderDailyPick(pick)));
+    section.append(list);
+    panel.append(section);
+  }
+
+  const tierDetails = [
+    ["grosse_cote", "Grosses cotes · 100+"],
+    ["moyen", "Combinés moyens · 10 à 100"],
+    ["prudent", "Combinés prudents · 2 à 10"],
+  ];
+  tierDetails.forEach(([key, title]) => {
+    const combos = data.combos?.[key] || [];
+    const section = el("section", "daily-picks-section");
+    const sectionHeading = el("div", "daily-picks-section-heading");
+    sectionHeading.append(el("h2", "daily-picks-section-title", title));
+    sectionHeading.append(el("span", "daily-picks-count", `${combos.length}/5`));
+    section.append(sectionHeading);
+    if (combos.length) {
+      const list = el("div", "daily-picks-list");
+      combos.forEach((pick) => list.append(renderDailyPick(pick, true)));
+      section.append(list);
+    } else {
+      section.append(el("div", "market-unavailable", "Aucun combiné ne remplit les critères avec les cotes 1xBet et les données actuellement disponibles."));
+    }
+    panel.append(section);
+  });
+
+  if (!data.singles?.length) {
+    panel.append(el("div", "market-unavailable", data.empty_note || "Aucun pari simple ne remplit les critères aujourd'hui."));
+  }
+  panel.append(el("p", "daily-picks-disclaimer", data.method_note || "Estimations non garanties."));
+}
+
+async function generateDailyPicks() {
+  if (state.dailyPicksBusy) return;
+  state.dailyPicksBusy = true;
+  const button = document.querySelector("#generate-daily-picks");
+  const panel = document.querySelector("#daily-picks-panel");
+  button.disabled = true;
+  button.querySelector(".daily-picks-button-label").textContent = "ANALYSE EN COURS…";
+  panel.hidden = false;
+  panel.replaceChildren(el("div", "loading-screen", ""));
+  const loader = panel.firstChild;
+  loader.append(el("strong", "", "Analyse des matchs en cache et des cotes 1xBet"));
+  loader.append(el("span", "", "Aucun profil manquant ne sera téléchargé pendant ce calcul."));
+  try {
+    const response = await fetch("/api/daily-picks", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ date: dateInput.value }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "La génération des propositions a échoué.");
+    state.dailyPicks = data;
+    const picksCount = document.querySelector("#tab-picks-count");
+    const singlesCount = data.singles?.length || 0;
+    picksCount.textContent = singlesCount ? String(singlesCount) : "0";
+    picksCount.hidden = false;
+    renderDailyPicks(data);
+  } catch (error) {
+    panel.replaceChildren(el("div", "analysis-error", error.message));
+  } finally {
+    state.dailyPicksBusy = false;
+    button.disabled = false;
+    button.querySelector(".daily-picks-button-label").textContent = "PRONOSTICS DU JOUR";
+    loadPredictionStats();
+  }
+}
+
+async function loadPredictionStats() {
+  const panel = document.querySelector("#prediction-performance");
+  panel.hidden = false;
+  panel.replaceChildren(el("div", "market-unavailable", "Chargement des résultats enregistrés…"));
+  try {
+    const response = await fetch("/api/prediction-stats");
+    const stats = await response.json();
+    if (!response.ok) throw new Error(stats.error || "Suivi indisponible");
+    panel.replaceChildren();
+    panel.hidden = false;
+    panel.append(el("div", "results-section-title", "RÉSULTATS HISTORIQUES · MODÈLE 1X2"));
+
+    const metrics = el("div", "prediction-performance-grid");
+    const values = stats.settled_predictions
+      ? [
+          ["Échantillon réglé", `${stats.settled_predictions}`],
+          ["Précision · meilleur 1X2", percent(stats.hit_rate)],
+          ["Brier multiclasses · plus bas = mieux", Number(stats.brier_score).toFixed(3)],
+          ["Log-loss · plus bas = mieux", Number(stats.log_loss).toFixed(3)],
+          [`Réussite simples · ${stats.settled_simple_bets} réglés`, stats.simple_bet_hit_rate == null ? "—" : percent(stats.simple_bet_hit_rate)],
+          [`Rendement simples · ${stats.settled_simple_bets} réglés`, stats.flat_stake_yield == null ? "—" : percent(stats.flat_stake_yield)],
+          ["En attente du score", `${stats.pending_predictions}`],
+        ]
+      : [["Matchs évaluables", "Aucun"], ["En attente du score", `${stats.pending_predictions}`]];
+    values.forEach(([label, value]) => {
+      const metric = el("div", "prediction-performance-metric");
+      metric.append(el("span", "", label), el("strong", "", value));
+      metrics.append(metric);
+    });
+    panel.append(metrics);
+    if (!stats.settled_predictions) {
+      panel.append(el("div", "market-unavailable", "Les performances apparaîtront après l’enregistrement des pronostics puis le chargement des scores finaux dans le calendrier."));
+    }
+    const calibration = (stats.calibration_bins || []).filter((item) => item.count > 0);
+    if (calibration.length) {
+      const calibrationList = el("div", "calibration-list");
+      calibrationList.append(el("div", "calibration-title", "Calibration · probabilité prévue / fréquence observée"));
+      calibration.forEach((item) => {
+        calibrationList.append(el(
+          "div",
+          "calibration-row",
+          `${item.range} · ${percent(item.mean_probability)} / ${percent(item.observed_rate)} · n=${item.count}`,
+        ));
+      });
+      panel.append(calibrationList);
+    }
+    panel.append(el("p", "prediction-performance-note", stats.warning));
+  } catch (error) {
+    panel.replaceChildren(el("div", "analysis-error", `Impossible de charger les performances : ${error.message}`));
+  }
 }
 
 function percent(value) {
@@ -838,6 +1129,11 @@ async function loadMatches(forceRefresh = false) {
     state.selectedId = null;
     state.analysis = null;
     state.batchResults = new Map();
+    state.dailyPicks = null;
+    const picksCount = document.querySelector("#tab-picks-count");
+    picksCount.hidden = true;
+    picksCount.textContent = "";
+    document.querySelector("#daily-picks-panel").hidden = true;
     detailPanel.classList.remove("open");
     renderDetailPlaceholder();
   }
@@ -849,6 +1145,7 @@ async function loadMatches(forceRefresh = false) {
     if (!response.ok) throw new Error(data.error || "Le calendrier n'est pas disponible.");
     applyMatches(data, forceRefresh, forceRefresh);
     totalCount.textContent = data.count;
+    loadPredictionStats();
   } catch (error) {
     if (forceRefresh) {
       listMeta.textContent = "Échec de l'actualisation";
@@ -871,6 +1168,7 @@ function renderDetailPlaceholder() {
 }
 
 dateInput.value = todayLocal();
+activateWorkspaceView(window.location.hash.slice(1), { updateHash: false });
 dateInput.addEventListener("change", loadMatches);
 document.querySelector("#refresh-calendar").addEventListener("click", () => loadMatches(true));
 searchInput.addEventListener("input", renderMatches);
@@ -897,6 +1195,11 @@ document.querySelector("#clear-selection").addEventListener("click", () => {
   renderDetailPlaceholder();
 });
 document.querySelector("#analyze-cached").addEventListener("click", analyzeCachedMatches);
+document.querySelector("#generate-daily-picks").addEventListener("click", generateDailyPicks);
+document.querySelector("#refresh-performance").addEventListener("click", loadPredictionStats);
+window.addEventListener("popstate", () => {
+  activateWorkspaceView(window.location.hash.slice(1), { updateHash: false });
+});
 document.querySelector("#notifications-toggle").addEventListener("click", toggleFavoriteNotifications);
 document.querySelector("#auto-refresh").addEventListener("click", (event) => {
   state.autoRefreshEnabled = !state.autoRefreshEnabled;

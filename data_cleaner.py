@@ -80,6 +80,7 @@ def extract_team_data(team_data):
     stats = stats if isinstance(stats, dict) else {}
     ranking = ranking if isinstance(ranking, dict) else {}
     matches = matches if isinstance(matches, list) else []
+    team_name = str(sc.get("team") or "").strip().casefold()
 
     forme_lignes = []
     v, n, d = 0, 0, 0
@@ -96,8 +97,19 @@ def extract_team_data(team_data):
         if outcome == "W": v += 1
         elif outcome == "D": n += 1
         elif outcome == "L": d += 1
-        buts_marques.append(sh)
-        buts_encaisses.append(sa)
+        venue = str(m.get("venue") or "").strip().upper()
+        if venue in {"H", "HOME"}:
+            buts_marques.append(sh)
+            buts_encaisses.append(sa)
+        elif venue in {"A", "AWAY"}:
+            buts_marques.append(sa)
+            buts_encaisses.append(sh)
+        elif team_name == str(home).strip().casefold():
+            buts_marques.append(sh)
+            buts_encaisses.append(sa)
+        elif team_name == str(away).strip().casefold():
+            buts_marques.append(sa)
+            buts_encaisses.append(sh)
         forme_lignes.append(f"{date}  {home} {sh}-{sa} {away}  [{outcome}]")
 
     nb = len(buts_marques)

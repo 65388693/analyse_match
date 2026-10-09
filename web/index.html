@@ -24,24 +24,23 @@
   </header>
 
   <main class="app-shell">
-    <aside class="rail">
-      <div class="rail-label">ESPACE</div>
-      <button class="rail-item active" type="button" aria-current="page"><span class="rail-icon">▦</span><span>Matchs</span></button>
-      <div class="rail-rule"></div>
-      <div class="rail-note"><span class="rail-note-icon">i</span><span>Les probabilités sont des estimations statistiques, pas des garanties.</span></div>
-      <div class="rail-footer">MATCH SCOPE <span>·</span> 01</div>
-    </aside>
-
     <section class="content">
       <div class="page-heading">
         <div>
-          <div class="eyebrow"><span class="eyebrow-line"></span> CALENDRIER & ANALYSE FOOTBALL</div>
-          <h1>Les matchs.<br><em>En clair.</em></h1>
-          <p class="page-description">Rencontres du jour, donnees disponibles et probabilites statistiques reunies dans un seul espace.</p>
+          <div class="eyebrow"><span class="eyebrow-line"></span> MATCHSCOPE · CENTRE DE PRÉVISION</div>
+          <h1>Football.<br><em>Mesuré.</em></h1>
+          <p class="page-description">Calendrier, sélections et résultats évalués séparément. Les estimations ne garantissent pas un gain.</p>
         </div>
-        <div class="heading-aside"><span class="heading-stamp">MS<br><b>26</b></span><span>CALENDRIER<br>FOOTBALL</span></div>
+        <div class="heading-aside"><span class="heading-stamp">MS<br><b>26</b></span><span>ANALYSE<br>FOOTBALL</span></div>
       </div>
 
+      <nav class="workspace-tabs" role="tablist" aria-label="Vues MatchScope">
+        <button class="workspace-tab active" id="tab-calendar" type="button" role="tab" aria-selected="true" aria-controls="view-calendar" data-view="calendar"><span class="workspace-tab-icon">▦</span>Calendrier</button>
+        <button class="workspace-tab" id="tab-picks" type="button" role="tab" aria-selected="false" aria-controls="view-picks" data-view="picks" tabindex="-1"><span class="workspace-tab-icon">∑</span>Pronostics<span id="tab-picks-count" class="workspace-tab-count" hidden></span></button>
+        <button class="workspace-tab" id="tab-performance" type="button" role="tab" aria-selected="false" aria-controls="view-performance" data-view="performance" tabindex="-1"><span class="workspace-tab-icon">↗</span>Performance</button>
+      </nav>
+
+      <section class="workspace-view active" id="view-calendar" role="tabpanel" aria-labelledby="tab-calendar" data-view-panel="calendar">
       <section class="toolbar" aria-label="Filtres des matchs">
         <label class="date-control"><span class="control-label">JOURNÉE</span><input id="match-date" type="date" aria-label="Date des matchs"></label>
         <label class="search-control"><span class="control-label">RECHERCHER</span><span class="search-box"><span class="search-glyph">⌕</span><input id="search" type="search" placeholder="Équipe, pays, compétition" autocomplete="off"><kbd>/</kbd></span></label>
@@ -64,12 +63,24 @@
         <button type="button" class="status-tab" data-status="finished">Terminés</button>
         <span class="coverage-note"><span class="coverage-dot"></span> Calendrier fournisseur</span>
       </nav>
-      <div class="batch-bar"><span>Calcul local depuis les profils déjà téléchargés</span><div class="batch-actions"><button id="auto-refresh" class="auto-refresh-toggle" type="button" aria-pressed="false" title="Actualiser automatiquement toutes les 2 minutes quand l'onglet En direct est actif"><span class="auto-refresh-dot"></span><span id="auto-refresh-label">AUTO DÉSACTIVÉ</span><span class="zero-calls">2 MIN · ~30/H</span></button><span id="auto-refresh-status" class="auto-refresh-status">En veille</span><button id="notifications-toggle" class="auto-refresh-toggle" type="button" aria-pressed="false" title="Notifier les changements des matchs favoris au prochain rafraîchissement du calendrier"><span id="notifications-label">ALERTES OFF</span></button><span id="notifications-status" class="auto-refresh-status"></span><button id="refresh-calendar" type="button" title="Actualiser le calendrier (1 appel fournisseur)"><span class="batch-icon">↻</span> ACTUALISER <span class="zero-calls">1 APPEL</span></button><button id="analyze-cached" type="button"><span class="batch-icon">∑</span><span class="batch-action-label">ANALYSER LE CACHE</span><span class="zero-calls">0 APPEL API</span></button></div></div>
+      <div class="batch-bar"><span>Actualisation et cache des données</span><div class="batch-actions"><button id="auto-refresh" class="auto-refresh-toggle" type="button" aria-pressed="false" title="Actualiser automatiquement toutes les 2 minutes quand l'onglet En direct est actif"><span class="auto-refresh-dot"></span><span id="auto-refresh-label">AUTO DÉSACTIVÉ</span><span class="zero-calls">2 MIN · ~30/H</span></button><span id="auto-refresh-status" class="auto-refresh-status">En veille</span><button id="notifications-toggle" class="auto-refresh-toggle" type="button" aria-pressed="false" title="Notifier les changements des matchs favoris au prochain rafraîchissement du calendrier"><span id="notifications-label">ALERTES OFF</span></button><span id="notifications-status" class="auto-refresh-status"></span><button id="refresh-calendar" type="button" title="Actualiser le calendrier (1 appel fournisseur)"><span class="batch-icon">↻</span> ACTUALISER <span class="zero-calls">1 APPEL</span></button><button id="analyze-cached" type="button"><span class="batch-icon">∑</span><span class="batch-action-label">ANALYSER LE CACHE</span><span class="zero-calls">0 APPEL API</span></button></div></div>
       <div id="batch-result" class="batch-result" hidden></div>
 
       <div class="list-header"><span id="list-title">RENCONTRES</span><span id="list-meta">Chargement…</span></div>
       <div id="match-list" class="match-list" aria-live="polite"></div>
       <div id="empty-state" class="empty-state" hidden><span class="empty-mark">—</span><strong>Aucun match ne correspond</strong><span>Modifie les filtres ou essaie une autre date.</span></div>
+      </section>
+
+      <section class="workspace-view" id="view-picks" role="tabpanel" aria-labelledby="tab-picks" data-view-panel="picks" hidden>
+        <div class="view-heading"><div><div class="eyebrow"><span class="eyebrow-line"></span> SÉLECTIONS DU JOUR</div><h2>Pronostics <em>1xBet</em></h2><p class="view-description">Basés sur les profils déjà en cache et les cotes disponibles. Aucun pari n’est forcé si les critères ne sont pas réunis.</p></div><button id="generate-daily-picks" class="primary-action" type="button" title="Générer des paris simples et combinés à partir du cache et des cotes 1xBet"><span class="batch-icon">∑</span><span class="daily-picks-button-label">ANALYSER LA JOURNÉE</span></button></div>
+        <div id="daily-picks-panel" class="daily-picks-panel" aria-live="polite" hidden></div>
+      </section>
+
+      <section class="workspace-view" id="view-performance" role="tabpanel" aria-labelledby="tab-performance" data-view-panel="performance" hidden>
+        <div class="view-heading"><div><div class="eyebrow"><span class="eyebrow-line"></span> HISTORIQUE RÉEL</div><h2>Performance <em>mesurée</em></h2><p class="view-description">Prévisions 1X2 complètes pour évaluer le modèle; rendement calculé séparément sur les simples enregistrés.</p></div><button id="refresh-performance" class="secondary-action" type="button" title="Actualiser les métriques"><span class="batch-icon">↻</span> ACTUALISER</button></div>
+        <div id="prediction-performance" class="prediction-performance" aria-live="polite"></div>
+        <div class="performance-method"><strong>Comment lire ces résultats</strong><p>La précision top-1 mesure la fréquence à laquelle le résultat le plus probable est correct. Brier et log-loss évaluent les probabilités sur les trois issues; plus bas est préférable. Le rendement est une simulation à mise fixe sur les simples enregistrés, pas un résultat de compte joueur. Un petit échantillon ne permet pas de conclure.</p><p>Les combinés ne sont pas inclus dans le rendement historique. Leur probabilité actuelle suppose l’indépendance des matchs et doit rester interprétée avec prudence.</p></div>
+      </section>
     </section>
 
     <aside class="detail-panel" id="detail-panel">
