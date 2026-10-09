@@ -1,0 +1,13 @@
+# Secrets and local environment
+.env
+.env.*
+!.env.example
+
+# Python environments and generated files
+.venv/
+__pycache__/
+*.py[cod]
+
+# Local provider caches and generated app data
+cache/
+data/analyses.json

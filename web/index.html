@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f4f5f0">
+  <meta name="description" content="MatchScope rassemble le calendrier football du jour et propose des analyses statistiques, probabilites et comparaisons de marches lorsque les donnees sont disponibles.">
+  <meta property="og:title" content="MatchScope | Calendrier et analyse football">
+  <meta property="og:description" content="Suivez les rencontres du jour, explorez les statistiques et comparez les probabilites estimees.">
+  <title>MatchScope | Calendrier et analyse football</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/matchscope-football" aria-label="MatchScope accueil">
+      <span class="brand-mark">M</span>
+      <span class="brand-name">MATCH<span>SCOPE</span></span>
+    </a>
+    <div class="topbar-center"><span class="pulse-dot"></span> CALENDRIER · STATS · PROBABILITÉS</div>
+    <div class="topbar-right"><span class="local-label">ANALYSE FOOTBALL</span><span class="profile-mark">MS</span></div>
+  </header>
+
+  <main class="app-shell">
+    <aside class="rail">
+      <div class="rail-label">ESPACE</div>
+      <button class="rail-item active" type="button" aria-current="page"><span class="rail-icon">▦</span><span>Matchs</span></button>
+      <div class="rail-rule"></div>
+      <div class="rail-note"><span class="rail-note-icon">i</span><span>Les probabilités sont des estimations statistiques, pas des garanties.</span></div>
+      <div class="rail-footer">MATCH SCOPE <span>·</span> 01</div>
+    </aside>
+
+    <section class="content">
+      <div class="page-heading">
+        <div>
+          <div class="eyebrow"><span class="eyebrow-line"></span> CALENDRIER & ANALYSE FOOTBALL</div>
+          <h1>Les matchs.<br><em>En clair.</em></h1>
+          <p class="page-description">Rencontres du jour, donnees disponibles et probabilites statistiques reunies dans un seul espace.</p>
+        </div>
+        <div class="heading-aside"><span class="heading-stamp">MS<br><b>26</b></span><span>CALENDRIER<br>FOOTBALL</span></div>
+      </div>
+
+      <section class="toolbar" aria-label="Filtres des matchs">
+        <label class="date-control"><span class="control-label">JOURNÉE</span><input id="match-date" type="date" aria-label="Date des matchs"></label>
+        <label class="search-control"><span class="control-label">RECHERCHER</span><span class="search-box"><span class="search-glyph">⌕</span><input id="search" type="search" placeholder="Équipe, pays, compétition" autocomplete="off"><kbd>/</kbd></span></label>
+        <label class="select-control"><span class="control-label">PAYS</span><select id="country-filter"><option value="">Tous les pays</option></select></label>
+        <label class="select-control league-filter"><span class="control-label">COMPÉTITION</span><select id="league-filter"><option value="">Toutes</option></select></label>
+      </section>
+
+      <nav class="availability-tabs" aria-label="Filtrer selon la disponibilité de l'analyse">
+        <button type="button" class="availability-tab active" data-availability="all">Tous <span id="coverage-all">—</span></button>
+        <button type="button" class="availability-tab" data-availability="analyzable">Analysables <span id="coverage-analyzable">—</span></button>
+        <button type="button" class="availability-tab" data-availability="cache">Prêts sans API <span id="coverage-cache">—</span></button>
+        <button type="button" class="availability-tab" data-availability="unmapped">Non couverts <span id="coverage-unmapped">—</span></button>
+        <button type="button" class="availability-tab" data-availability="favorites">Favoris <span id="coverage-favorites">—</span></button>
+      </nav>
+
+      <nav class="status-tabs" aria-label="Filtrer par statut">
+        <button type="button" class="status-tab active" data-status="all">Tous <span id="total-count">—</span></button>
+        <button type="button" class="status-tab" data-status="live"><span class="tab-live-dot"></span>En direct</button>
+        <button type="button" class="status-tab" data-status="upcoming">À venir</button>
+        <button type="button" class="status-tab" data-status="finished">Terminés</button>
+        <span class="coverage-note"><span class="coverage-dot"></span> Calendrier fournisseur</span>
+      </nav>
+      <div class="batch-bar"><span>Calcul local depuis les profils déjà téléchargés</span><div class="batch-actions"><button id="auto-refresh" class="auto-refresh-toggle" type="button" aria-pressed="false" title="Actualiser automatiquement toutes les 2 minutes quand l'onglet En direct est actif"><span class="auto-refresh-dot"></span><span id="auto-refresh-label">AUTO DÉSACTIVÉ</span><span class="zero-calls">2 MIN · ~30/H</span></button><span id="auto-refresh-status" class="auto-refresh-status">En veille</span><button id="notifications-toggle" class="auto-refresh-toggle" type="button" aria-pressed="false" title="Notifier les changements des matchs favoris au prochain rafraîchissement du calendrier"><span id="notifications-label">ALERTES OFF</span></button><span id="notifications-status" class="auto-refresh-status"></span><button id="refresh-calendar" type="button" title="Actualiser le calendrier (1 appel fournisseur)"><span class="batch-icon">↻</span> ACTUALISER <span class="zero-calls">1 APPEL</span></button><button id="analyze-cached" type="button"><span class="batch-icon">∑</span><span class="batch-action-label">ANALYSER LE CACHE</span><span class="zero-calls">0 APPEL API</span></button></div></div>
+      <div id="batch-result" class="batch-result" hidden></div>
+
+      <div class="list-header"><span id="list-title">RENCONTRES</span><span id="list-meta">Chargement…</span></div>
+      <div id="match-list" class="match-list" aria-live="polite"></div>
+      <div id="empty-state" class="empty-state" hidden><span class="empty-mark">—</span><strong>Aucun match ne correspond</strong><span>Modifie les filtres ou essaie une autre date.</span></div>
+    </section>
+
+    <aside class="detail-panel" id="detail-panel">
+      <div class="detail-topline"><span>FICHE RENCONTRE</span><button id="clear-selection" class="icon-button" type="button" title="Effacer la sélection" aria-label="Effacer la sélection">×</button></div>
+      <div id="detail-content" class="detail-content empty-detail">
+        <div class="detail-placeholder-art"><span class="pitch-circle"></span><span class="pitch-line"></span><span class="placeholder-ball">●</span></div>
+        <div class="detail-placeholder-title">Choisis<br>ton match.</div>
+        <p>La fiche et l'analyse apparaîtront ici.</p>
+        <span class="detail-index">SÉLECTIONNE UNE RENCONTRE DANS LE CALENDRIER</span>
+      </div>
+      <div class="detail-footer"><span>ESTIMATIONS POISSON</span><span>NON CONTRACTUELLES</span></div>
+    </aside>
+  </main>
+  <script src="/app.js" defer></script>
+</body>
+</html>

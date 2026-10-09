@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: matchscope-football
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python web_app.py
+    healthCheckPath: /health
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: FC_API_KEY
+        sync: false
+      - key: LIVE_FOOTBALL_KEY
+        sync: false
+      - key: WEB_AUTH_USERNAME
+        sync: false
+      - key: WEB_AUTH_PASSWORD
+        sync: false
